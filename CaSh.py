@@ -228,7 +228,7 @@ class h5_Dump:
 
         def find_cavity_edge(dens_profile):
             until_max = dens_profile[:np.argmax(dens_profile)+1]
-            mask=until_max<(np.max(until_max)/2)
+            mask=until_max<(np.max(until_max))
             cavity = until_max[mask]
     
             return len(cavity)
@@ -267,6 +267,51 @@ class h5_Dump:
         self.cavity_eccentricity = (max_rad/min_rad-1)/(1+max_rad/min_rad)
 
         return
+
+    def compute_cavity_orbital_parameters(self):
+        "Compute cavity orbital parameter"
+        #sink_mass = np.sum(dump.snap.sinks['mass']).to('solar_mass').magnitude
+
+        self.cav_idx = len(self.a_bins[self.a_bins<self.cavity_semimajor_axis])#+5
+        self.cav_a = self.a_bins[self.cav_idx]
+        self.cav_e = np.sqrt(self.a_peric[self.cav_idx,2]**2+self.a_peric[self.cav_idx,1]**2+self.a_peric[self.cav_idx,0]**2)
+        
+        z_ax = np.array([0,0,1]) #line of sight
+        lon_vec = np.cross(z_ax, self.a_h[self.cav_idx]) #line of ascending node vector
+        x_ax = np.array([1,0,0]) #vernal equinox
+        
+        
+        self.cav_omega = np.sign(self.a_peric[self.cav_idx,2])*np.arccos(lon_vec.dot(self.a_peric[self.cav_idx])/self.cav_e/np.sqrt(np.sum(lon_vec*lon_vec)))
+        self.cav_i = np.arccos(self.a_h[self.cav_idx].dot(z_ax)/np.sqrt(np.sum(self.a_h[self.cav_idx]*self.a_h[self.cav_idx])))
+        self.cav_Omega = np.sign(lon_vec[1])*np.arccos(lon_vec.dot(x_ax)/np.sqrt(np.sum(lon_vec*lon_vec)))
+
+        return #omega, i, Omega
+
+    def compute_cavity_shape(self, points=100):
+        "Compute cavity shape with Thiele-Innes elements"
+
+        self.compute_cavity_orbital_parameters()
+
+        omega, i, Omega = self.cav_omega, self.cav_i, self.cav_Omega #self.compute_cavity_orbital_parameters()
+        
+        E = np.linspace(0, 2*np.pi, points)
+        
+        P = np.array([np.cos(omega)*np.cos(Omega)-np.sin(omega)*np.cos(i)*np.sin(Omega),
+                      np.cos(omega)*np.sin(Omega)+np.sin(omega)*np.cos(i)*np.cos(Omega),
+                      np.sin(omega)*np.sin(i)])
+        
+        Q = np.array([-np.sin(omega)*np.cos(Omega)-np.cos(omega)*np.cos(i)*np.sin(Omega),
+                      -np.sin(omega)*np.sin(Omega)+np.cos(omega)*np.cos(i)*np.cos(Omega),
+                      np.cos(omega)*np.sin(i)])
+        
+        A = np.cos(E)-self.cav_e
+        
+        B = np.sqrt(1-self.cav_e**2)*np.sin(E)
+        
+        orbit_xyz = self.cav_a*(np.outer(A,P)+np.outer(B,Q))
+
+        return orbit_xyz
+
 
 
     def compute_ring_average_e(self, r_in, r_out, n_bin):
@@ -333,7 +378,14 @@ class h5_Dump:
         self.cavity_semimajor_axis = -1
 
         self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
-    
+
+        self.cav_Omega = -1
+        self.cav_omega = -1
+        self.cav_i = -1
+        self.cav_e = -1
+        self.cav_a = -1
+
+        self.cav_idx = -1
                 
 class Simulation:
     """ Class for a set of dumps. """
