@@ -217,7 +217,9 @@ class h5_Dump:
         
         
         self.parts_semimajor_axis = -0.5*self.stellar_mass/(self.parts_specific_potential_energy+self.parts_specific_kinetic_energy)
-        self.parts_eccentricity_vector = np.cross(self.parts_vxyz, np.cross(self.parts_xyz, self.parts_vxyz))/self.stellar_mass-self.parts_xyz/self.parts_r.repeat(3).reshape(-1,3)
+
+        self.parts_l = np.cross(self.parts_xyz, self.parts_vxyz)
+        self.parts_eccentricity_vector = np.cross(self.parts_vxyz, self.parts_l)/self.stellar_mass-self.parts_xyz/self.parts_r.repeat(3).reshape(-1,3)
         
         return
 
@@ -277,6 +279,7 @@ class h5_Dump:
 
         self.a_masks=[]
         self.a_peric=np.zeros((len(self.a_bins)-1,3))
+        self.a_h=np.zeros((len(self.a_bins)-1,3))
         
         for i, ain in enumerate(self.a_bins[:-1]):
             aout=self.a_bins[i+1]
@@ -289,6 +292,7 @@ class h5_Dump:
             #print(mask.T[0])
             if len(mask.T[0])>0:
                 self.a_peric[s]=np.mean(self.parts_eccentricity_vector[mask.T[0]], axis=0)
+                self.a_h[s]=np.mean(self.parts_l[mask.T[0]], axis=0)
             
         return 
     
@@ -319,6 +323,8 @@ class h5_Dump:
     
         self.parts_specific_potential_energy = []
         self.parts_specific_kinetic_energy = []
+
+        self.parts_l = []
         
         self.parts_semimajor_axis = []
         self.parts_eccentricity_vector = []
