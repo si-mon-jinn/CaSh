@@ -1,2 +1,2 @@
 # CaSh
-An SPH simulations **Ca**vity **Sh**ape analyser. 
+A SPH simulations **Ca**vity **Sh**ape analyser. 
