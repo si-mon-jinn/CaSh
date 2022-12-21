@@ -227,12 +227,65 @@ class h5_Dump:
     
         for s, mask in enumerate(self.a_masks):
             #print(mask.T[0])
-            if len(mask.T[0])>0:
-                self.a_peric[s]=np.mean(self.parts_eccentricity_vector[mask.T[0]], axis=0)
-                self.a_h[s]=np.mean(self.parts_l[mask.T[0]], axis=0)
+            if len(mask)>0:
+                self.a_peric[s]=np.mean(self.parts_eccentricity_vector[mask], axis=0)
+                self.a_h[s]=np.mean(self.parts_l[mask], axis=0)
             
         return 
 
+    def compute_disc_orbital_parameters(self, r_in, r_out, n_bin):
+        """ 
+        Compute the average orbital parameters for each disc bin
+        """
+        
+        self.anu_sma=np.linspace(r_in, r_out, n_bin)
+
+        self.a_masks=[]
+        self.a_peric=np.zeros((len(self.anu_sma)-1,3))
+        self.a_h=np.zeros((len(self.anu_sma)-1,3))
+
+        self.anu_ecc_vec=np.zeros((len(self.anu_sma)-1,3))
+        self.anu_ecc_vec_std=np.zeros((len(self.anu_sma)-1,3))
+
+        self.anu_spec_ang_mom=np.zeros((len(self.anu_sma)-1,3))
+
+        z_ax=np.array([0,0,1])
+        x_ax=np.array([1,0,0])
+        
+        for i, ain in enumerate(self.anu_sma[:-1]):
+            aout=self.anu_sma[i+1]
+            cond=np.argwhere(np.logical_and(
+                self.parts_semimajor_axis>=ain, 
+                self.parts_semimajor_axis<aout))
+            self.a_masks.append(cond)
+    
+        for s, mask in enumerate(self.a_masks):
+            if len(mask)>0:
+                self.anu_spec_ang_mom[s] = np.mean(self.parts_l[mask], axis=0)
+                self.anu_ecc_vec[s] = np.mean(self.parts_eccentricity_vector[mask], axis=0)
+                self.anu_ecc_vec_std[s] = np.std(self.parts_eccentricity_vector[mask], axis=0)
+
+        self.anu_ecc = np.sqrt(np.sum(self.anu_ecc_vec*self.anu_ecc_vec, axis=-1))
+        self.anu_ecc_std = np.sqrt(np.sum(self.anu_ecc_vec**2*self.anu_ecc_vec_std**2, axis=-1))/self.anu_ecc
+
+        self.anu_incl = np.arccos(self.anu_spec_ang_mom.dot(z_ax)
+                                  /np.sqrt(np.sum(self.anu_spec_ang_mom**2, axis=-1)))
+
+        self.anu_lon_vec = np.cross(z_ax, self.anu_spec_ang_mom)
+        self.anu_Omega = np.arctan2(np.sqrt(np.sum(np.cross(x_ax,self.anu_lon_vec)**2, axis=-1))
+                                    /np.sqrt(np.sum(self.anu_lon_vec**2, axis = -1)),
+                                    self.anu_lon_vec.dot(x_ax)
+                                    /np.sqrt(np.sum(self.anu_lon_vec**2, axis = -1)))
+
+        
+        self.anu_omega = np.arctan2(np.sqrt(np.sum(np.cross(self.anu_lon_vec, self.anu_ecc_vec)**2, axis=-1))
+                                   /np.sqrt(np.sum(self.anu_ecc_vec**2, axis=-1))
+                                   /np.sqrt(np.sum(self.anu_lon_vec**2, axis=-1)),
+                           np.sum(self.anu_lon_vec*self.anu_ecc_vec, axis=-1)
+                                   /np.sqrt(np.sum(self.anu_ecc_vec**2, axis=-1))
+                                   /np.sqrt(np.sum(self.anu_lon_vec**2, axis=-1)))
+            
+        return 
     
 
     
@@ -275,6 +328,16 @@ class h5_Dump:
 
         self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
 
+        self.anu_sma = -1
+        self.anu_ecc_vec = -1
+        self.anu_ec_vec_std = -1
+        self.anu_ecc = -1
+        self.anu_ecc_std = -1
+        self.anu_spec_ang_mom = -1
+        self.anu_incl = -1
+        self.anu_lon_vec = -1
+        self.anu_Omega = -1
+        self.anu_omega = -1
 
         self.cav_Omega = -1
         self.cav_omega = -1
