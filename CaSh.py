@@ -1,7 +1,6 @@
 import numpy as np
 import re
 import os
-import plonk
 import h5py as h5
 
 au_in_km = 1.496*10**8
@@ -92,6 +91,11 @@ class h5_Dump:
         return
 
     def compute_cavity_semimajor_axis(self, slices=8):
+
+        import plonk
+
+        self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
+
 
         def find_cavity_edge(dens_profile): # Defined as the radius at which surface density first reaches half its maximum (Artymowicz&Lubow94)
             until_max = dens_profile[:np.argmax(dens_profile)+1]
@@ -326,7 +330,6 @@ class h5_Dump:
         self.cavity_eccentricity = -1
         self.cavity_semimajor_axis = -1
 
-        self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
 
         self.anu_sma = -1
         self.anu_ecc_vec = -1
