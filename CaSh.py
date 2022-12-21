@@ -2,6 +2,7 @@ import numpy as np
 import re
 import os
 import plonk
+import h5py as h5
 
 au_in_km = 1.496*10**8
 t_in_s = 5.023*10**6 # time unit that sets G=1
@@ -27,32 +28,68 @@ class h5_Dump:
         eccentricity_vector: velocity position mass radius_spherical
         """
         
-        self.sinks_mass = self.snap.sinks['mass'].to('solar_mass').magnitude
-        
+        with h5.File(self.dump_filename, "r") as h5_dump:
+            sinks_n = 2
+            sinks_key = 'sinks' #list(h5_dump.keys())[sinks_n]
+            parts_n = 1
+            parts_key = 'particles' #list(h5_dump.keys())[parts_n]
+            header_n = 0
+            header_key = 'header' #list(h5_dump.keys())[header_n]
+            
+            
+            sinks_xyz_n = 7
+            sinks_xyz_key = 'xyz' #list(h5_dump[sinks_key])[sinks_xyz_n]
+            sinks_mass_n = 2
+            sinks_mass_key = 'm' #list(h5_dump[sinks_key])[sinks_mass_n]
+            sinks_vxyz_n = 6
+            sinks_vxyz_key = 'vxyz' #list(h5_dump[sinks_key])[sinks_vxyz_n]
+
+            
+            print('Loading sinks properties (%s):' % sinks_key)
+            print('    position (%s)' %  sinks_xyz_key)
+            self.sinks_xyz = h5_dump[sinks_key][sinks_xyz_key][()]
+            print('    mass (%s)' %  sinks_mass_key)
+            self.sinks_mass = h5_dump[sinks_key][sinks_mass_key][()]
+            print('    velocity (%s)' %  sinks_vxyz_key)
+            self.sinks_vxyz = h5_dump[sinks_key][sinks_vxyz_key][()]
+
+            parts_mass_n = 0
+            parts_mass_key = 'massoftype' #list(h5_dump[parts_key])[parts_mass_n]
+            parts_xyz_n = 8
+            parts_xyz_key = 'xyz' #list(h5_dump[parts_key])[parts_xyz_n]
+            parts_vxyz_n = 7
+            parts_vxyz_key = 'vxyz' #list(h5_dump[parts_key])[parts_vxyz_n]
+
+            print('Loading particles properties (%s):' % parts_key)
+            print('    position (%s)' %  parts_xyz_key)
+            self.parts_xyz = h5_dump[parts_key][parts_xyz_key][()]
+            print('    mass (%s)' %  parts_mass_key)
+            self.parts_mass = h5_dump[header_key][parts_mass_key][()][0]
+            print('    velocity (%s)' %  parts_vxyz_key)
+            self.parts_vxyz = h5_dump[parts_key][parts_vxyz_key][()]
+
+
         self.stellar_mass = np.sum(self.sinks_mass)
 
-        self.cm_pos = np.sum(self.snap.sinks['position'].to('au').magnitude*self.sinks_mass[:,np.newaxis], axis=0)/np.sum(self.sinks_mass)
-        self.cm_vel = np.sum(self.snap.sinks['velocity'].to('km/s').magnitude*self.sinks_mass[:,np.newaxis], axis=0)/np.sum(self.sinks_mass) /au_in_km*t_in_s
+        self.cm_pos = np.sum(self.sinks_xyz*self.sinks_mass[:,None], axis=0)/np.sum(self.sinks_mass)
+        self.cm_vel = np.sum(self.sinks_vxyz*self.sinks_mass[:,None], axis=0)/np.sum(self.sinks_mass)
 
-        
-        self.parts_mass = self.snap['mass'].to('solar_mass').magnitude
-        self.parts_xyz = self.snap['position'].to('au').magnitude - self.cm_pos
-        self.parts_vxyz = self.snap['velocity'].to('km/s').magnitude/au_in_km*t_in_s - self.cm_vel
+        self.parts_xyz -= self.cm_pos
+        self.parts_vxyz -= self.cm_vel
 
         
         self.parts_r = np.sqrt((self.parts_xyz*self.parts_xyz).sum(axis=1)) # particles spherical radius
+
         
         self.parts_specific_potential_energy = -self.stellar_mass/self.parts_r
         self.parts_specific_kinetic_energy = 0.5*(self.parts_vxyz*self.parts_vxyz).sum(axis=1)
-        
-        
+
         self.parts_semimajor_axis = -0.5*self.stellar_mass/(self.parts_specific_potential_energy+self.parts_specific_kinetic_energy)
 
         self.parts_l = np.cross(self.parts_xyz, self.parts_vxyz)
-        self.parts_eccentricity_vector = np.cross(self.parts_vxyz, self.parts_l)/self.stellar_mass-self.parts_xyz/self.parts_r.repeat(3).reshape(-1,3)
+        self.parts_eccentricity_vector = np.cross(self.parts_vxyz, self.parts_l)/self.stellar_mass-self.parts_xyz/self.parts_r[:, None]#.repeat(3).reshape(-1,3)
         
         return
-
 
     def compute_cavity_semimajor_axis(self, slices=8):
 
@@ -195,6 +232,7 @@ class h5_Dump:
                 self.a_h[s]=np.mean(self.parts_l[mask.T[0]], axis=0)
             
         return 
+
     
 
     
@@ -236,6 +274,7 @@ class h5_Dump:
         self.cavity_semimajor_axis = -1
 
         self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
+
 
         self.cav_Omega = -1
         self.cav_omega = -1
