@@ -90,13 +90,10 @@ class h5_Dump:
         
         return
 
-    def compute_cavity_semimajor_axis(self, slices=8):
-
-        import plonk
-
-        self.snap=plonk.load_snap(self.dump_filename.split('.')[0]+".h5")
-
-
+    def compute_cavity_semimajor_axis(self,
+                                      n_bins=100,
+                                      n_min=-1,
+                                      n_max=-1):
         def find_cavity_edge(dens_profile): # Defined as the radius at which surface density first reaches half its maximum (Artymowicz&Lubow94)
             until_max = dens_profile[:np.argmax(dens_profile)+1]
             mask=until_max<(np.max(until_max)/2)
@@ -104,67 +101,31 @@ class h5_Dump:
     
             return len(cavity)
 
-        Omega, i = 0, 0
+        if n_min < 0: n_min=np.min(self.parts_semimajor_axis[self.parts_semimajor_axis>0])
+        if n_max < 0: n_max=np.max(self.parts_semimajor_axis)
         
-        if True:
-            h_parts = np.mean(self.parts_l, axis=0) # particles mean angular momentum
-            i = np.arccos(np.dot([0,0,1], h_parts)/np.sqrt(np.sum(h_parts**2))) # disc inclination wrt z axis
-                
-            n_parts = np.cross([0,0,1], h_parts) # particles mean line of nodes
-            Omega = np.arccos(np.dot([0,1,0],n_parts)/np.sqrt(np.sum(n_parts**2))) # particles mean longitude of the scending node
+        print(n_min, n_max, n_bins)
+        bins=np.linspace(n_min, n_max, n_bins)
 
-        # Rotate by Omega around z axis
-        yy = self.parts_xyz[:,0]*np.sin(-Omega)+self.parts_xyz[:,1]*np.cos(-Omega)
-        xx = self.parts_xyz[:,0]*np.cos(-Omega)-self.parts_xyz[:,1]*np.sin(-Omega)
+        masks=[]
+        for i, ain in enumerate(bins[:-1]):
+            aout=bins[i+1]
+            cond=np.argwhere(np.logical_and(
+                self.parts_semimajor_axis>=ain, 
+                self.parts_semimajor_axis<aout))
+            masks.append(cond)
 
-        # Rotate by i around the y axis
-        zz = -self.parts_xyz[:,0]*np.sin(i)+self.parts_xyz[:,2]*np.cos(i)
-        xx = self.parts_xyz[:,0]*np.cos(i)+self.parts_xyz[:,2]*np.sin(i)
 
-        # Shift each particle so that the system center of mass is in (0,0,0)
-        self.snap['x']=self.snap['x'].to('au')-self.snap['x'][0].to('au')/self.snap['x'][0].to('au').magnitude*self.cm_pos[0]
-        self.snap['y']=self.snap['y'].to('au')-self.snap['y'][0].to('au')/self.snap['y'][0].to('au').magnitude*self.cm_pos[1]
-        self.snap['z']=self.snap['z'].to('au')-self.snap['z'][0].to('au')/self.snap['z'][0].to('au').magnitude*self.cm_pos[2]
-
-        # Isolate a slice of disc, and store the density profile
         
-        profiles=[]
+        asd = np.array([len(x) for x in masks])#np.count_nonzero(self.a_masks, axis=1)
         
-        dtheta=2*np.pi/slices
-        
-        for j in range(0,slices):
-            min_ang = dtheta*j
-            max_ang = dtheta*(j+1)
-            sign = 1
-    
-            if min_ang > np.pi: min_ang -= 2*np.pi
-            if max_ang > np.pi: max_ang -= 2*np.pi
-            mask1 = np.arctan2(yy, xx) > np.min([min_ang, max_ang])
-            subsnap = self.snap[mask1]
-            subxx = xx[mask1]
-            subyy = yy[mask1]
-            mask2 = np.arctan2(subyy, subxx) < np.max([min_ang, max_ang])
-            subsnap = subsnap[mask2]
-
-            profiles.append(plonk.load_profile(subsnap))
-
-        radius = []
-        index = []
-    
-        for j,profile in enumerate(profiles):
-            idx = find_cavity_edge(profile['surface_density'])
-            index.append(idx)
-            radius.append(profile['radius'][idx].to('au').magnitude)
-            
-        max_rad = np.max(radius)
-        min_rad = np.min(radius)
-
-        self.cavity_semimajor_axis = (max_rad+min_rad)/2
-        self.cavity_eccentricity = (max_rad/min_rad-1)/(1+max_rad/min_rad)
+        self.cavity_semimajor_axis = bins[find_cavity_edge(asd)]
+        #self.cavity_eccentricity = 5
 
         return
+
     
-    def compute_cavity_orbital_parameters(self):
+    def compute_cavity_orbital_parameters(self): # Improve how CaSh chooses particles to compute cavity orbital parameters with (filtering particles at a distance (compute_cavity_sma precision? one-sided?) from true cavity edge?)
         "Compute cavity orbital parameter"
         #sink_mass = np.sum(dump.snap.sinks['mass']).to('solar_mass').magnitude
 
