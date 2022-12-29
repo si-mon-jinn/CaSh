@@ -65,7 +65,7 @@ class h5_Dump:
         
         return False
 
-    def compute_arrays(self):
+    def compute_arrays(self, force_comp = False):
         """ 
         Compute needed arrays for disc shape analysis. 
         
@@ -87,6 +87,8 @@ class h5_Dump:
         - parts_l: particles specific angular momentum
         - parts_ecc_vec: particles eccentricity vector
         """
+
+        if self.arrays_computed and not force_comp: return # check the need to compute arrays
 
         if not self.arrays_loaded(): self.load_arrays() # load arrays if needed
 
