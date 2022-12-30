@@ -160,17 +160,9 @@ class h5_Dump:
         
         self.cav_idx = len(self.anu_sma[self.anu_sma<self.cavity_sma])
         self.cav_a = self.anu_sma[self.cav_idx]
-        self.cav_e = np.sqrt(self.anu_ecc_vec[self.cav_idx,2]**2+self.anu_ecc_vec[self.cav_idx,1]**2+self.anu_ecc_vec[self.cav_idx,0]**2)
-        
-        z_ax = np.array([0,0,1]) #line of sight
-        lon_vec = np.cross(z_ax, self.anu_l[self.cav_idx]) #line of ascending node vector
-        x_ax = np.array([1,0,0]) #vernal equinox
-        
-        
-        self.cav_omega = np.sign(self.anu_ecc_vec[self.cav_idx,2])*np.arccos(lon_vec.dot(self.anu_ecc_vec[self.cav_idx])/self.cav_e/np.sqrt(np.sum(lon_vec*lon_vec)))
-        self.cav_i = np.arccos(self.anu_l[self.cav_idx].dot(z_ax)/np.sqrt(np.sum(self.anu_l[self.cav_idx]*self.anu_l[self.cav_idx])))
-        self.cav_Omega = np.sign(lon_vec[1])*np.arccos(lon_vec.dot(x_ax)/np.sqrt(np.sum(lon_vec*lon_vec)))
-
+                
+        self.cav_e, self.cav_i, self.cav_Omega, self.cav_omega = self.compute_orbital_parameters(self.anu_ecc_vec[self.cav_idx], self.anu_l[self.cav_idx])
+                
         return
 
     def compute_cavity_shape(self, points=100):
@@ -178,27 +170,60 @@ class h5_Dump:
 
         self.compute_cavity_orbital_parameters()
 
-        omega, i, Omega = self.cav_omega, self.cav_i, self.cav_Omega #self.compute_cavity_orbital_parameters()
-        
-        E = np.linspace(0, 2*np.pi, points)
+        orbit_xyz = self.compute_orbit_shape(np.array([self.cav_a]),
+                                             np.array([self.cav_e]),
+                                             np.array([self.cav_i]),
+                                             np.array([self.cav_Omega]),
+                                             np.array([self.cav_omega])) 
+
+        return orbit_xyz[0]
+
+    def compute_disc_shape(self, points=100):
+        "Compute disc shape with Thiele-Innes elements"
+
+        self.compute_disc_orbital_parameters()
+
+        orbit_xyz = self.compute_orbit_shape(self.anu_sma[:-1], self.anu_ecc, self.anu_incl, self.anu_Omega, self.anu_omega)
+        return orbit_xyz
+
+
+    def compute_orbit_shape(self, a, e, i, Omega, omega, points=100):
+        "Compute cavity shape with Thiele-Innes elements"
+
+        E = np.linspace(0, 2*np.pi, points)[None,:]
+
+        print('E', E.shape)
         
         P = np.array([np.cos(omega)*np.cos(Omega)-np.sin(omega)*np.cos(i)*np.sin(Omega),
                       np.cos(omega)*np.sin(Omega)+np.sin(omega)*np.cos(i)*np.cos(Omega),
-                      np.sin(omega)*np.sin(i)])
+                      np.sin(omega)*np.sin(i)]).T
+
+        print('P', P.shape, P[-1])
         
         Q = np.array([-np.sin(omega)*np.cos(Omega)-np.cos(omega)*np.cos(i)*np.sin(Omega),
                       -np.sin(omega)*np.sin(Omega)+np.cos(omega)*np.cos(i)*np.cos(Omega),
-                      np.cos(omega)*np.sin(i)])
+                      np.cos(omega)*np.sin(i)]).T
+
+        print('Q', Q.shape)
         
-        A = np.cos(E)-self.cav_e
+        A = (np.cos(E).T-e).T
+
+        print('A', A.shape, A[:,-1])
         
-        B = np.sqrt(1-self.cav_e**2)*np.sin(E)
+        B = (np.sqrt(1-e**2)*np.sin(E).T).T
+
+        print('B', B.shape)
         
-        orbit_xyz = self.cav_a*(np.outer(A,P)+np.outer(B,Q))#+self.cm_pos
+        orbit_xyz = a[:,None,None]*(A[...,None]*P[:,None,:]+B[...,None]*Q[:,None,:])#a*(np.outer(A,P)+np.outer(B,Q))
+
+        print(a.shape, np.outer(A,P).shape)
+        print(orbit_xyz.shape)
 
         return orbit_xyz
 
-    def compute_disc_orbital_parameters(self, r_in, r_out, n_bin, force_comp=False):
+    
+    
+    def compute_disc_orbital_parameters(self, r_in=10, r_out=100, n_bin=10, force_comp=False):
         """ 
         Compute the average orbital parameters for each disc bin
         """
@@ -230,27 +255,48 @@ class h5_Dump:
                 self.anu_ecc_vec[s] = np.mean(self.parts_ecc_vec[mask], axis=0)
                 self.anu_ecc_vec_std[s] = np.std(self.parts_ecc_vec[mask], axis=0)
 
-        self.anu_ecc = np.sqrt(np.sum(self.anu_ecc_vec*self.anu_ecc_vec, axis=-1))
-        self.anu_ecc_std = np.sqrt(np.sum(self.anu_ecc_vec**2*self.anu_ecc_vec_std**2, axis=-1))/self.anu_ecc
+        self.anu_ecc, self.anu_incl, self.anu_Omega, self.anu_omega = self.compute_orbital_parameters(self.anu_ecc_vec, self.anu_l)
+        
+        return
 
-        self.anu_incl = np.arccos(self.anu_l.dot(z_ax)
-                                  /np.sqrt(np.sum(self.anu_l**2, axis=-1)))
 
-        self.anu_lon_vec = np.cross(z_ax, self.anu_l)
-        self.anu_Omega = np.arctan2(np.sqrt(np.sum(np.cross(x_ax,self.anu_lon_vec)**2, axis=-1))
-                                    /np.sqrt(np.sum(self.anu_lon_vec**2, axis = -1)),
-                                    self.anu_lon_vec.dot(x_ax)
-                                    /np.sqrt(np.sum(self.anu_lon_vec**2, axis = -1)))
+    def compute_orbital_parameters(self, ecc_vec, l):
+        """ 
+        Compute (list of) orbital parameters given (list of) specific angular momentum, eccentricity vector.
+
+        input:
+            ecc_vec, shape (:, 3)
+            l, shape (:, 3)
+        
+        """
+
+        z_ax=np.array([0,0,1])
+        x_ax=np.array([1,0,0])
+        
+        ecc = np.sqrt(np.sum(ecc_vec*ecc_vec, axis=-1))
+        ##ecc_std = np.sqrt(np.sum(ecc_vec**2*ecc_vec_std**2, axis=-1))/ecc
+
+        incl = np.arccos(l.dot(z_ax)
+                         /np.sqrt(np.sum(l**2, axis=-1)))
+
+        lon_vec = np.cross(z_ax, l)
+        Omega = np.arctan2(np.sign(np.take(lon_vec,1,-1))*np.sqrt(np.sum(np.cross(x_ax,lon_vec)**2, axis=-1))
+                           /np.sqrt(np.sum(lon_vec**2, axis = -1)),
+                           lon_vec.dot(x_ax)
+                           /np.sqrt(np.sum(lon_vec**2, axis = -1)))
 
         
-        self.anu_omega = np.arctan2(np.sqrt(np.sum(np.cross(self.anu_lon_vec, self.anu_ecc_vec)**2, axis=-1))
-                                   /np.sqrt(np.sum(self.anu_ecc_vec**2, axis=-1))
-                                   /np.sqrt(np.sum(self.anu_lon_vec**2, axis=-1)),
-                           np.sum(self.anu_lon_vec*self.anu_ecc_vec, axis=-1)
-                                   /np.sqrt(np.sum(self.anu_ecc_vec**2, axis=-1))
-                                   /np.sqrt(np.sum(self.anu_lon_vec**2, axis=-1)))
-            
-        return 
+        omega = np.arctan2(np.sign(np.take(ecc_vec,2,-1))*np.sqrt(np.sum(np.cross(lon_vec, ecc_vec)**2, axis=-1))
+                                   /np.sqrt(np.sum(ecc_vec**2, axis=-1))
+                                   /np.sqrt(np.sum(lon_vec**2, axis=-1)),
+                           np.sum(lon_vec*ecc_vec, axis=-1)
+                                   /np.sqrt(np.sum(ecc_vec**2, axis=-1))
+                                   /np.sqrt(np.sum(lon_vec**2, axis=-1)))
+
+        #return ecc, ecc_std, incl, Omega, omega
+        return ecc, incl, Omega, omega
+
+
     
 
     
