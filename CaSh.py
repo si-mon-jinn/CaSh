@@ -192,32 +192,17 @@ class h5_Dump:
 
         E = np.linspace(0, 2*np.pi, points)[None,:]
 
-        print('E', E.shape)
-        
         P = np.array([np.cos(omega)*np.cos(Omega)-np.sin(omega)*np.cos(i)*np.sin(Omega),
                       np.cos(omega)*np.sin(Omega)+np.sin(omega)*np.cos(i)*np.cos(Omega),
                       np.sin(omega)*np.sin(i)]).T
-
-        print('P', P.shape, P[-1])
-        
         Q = np.array([-np.sin(omega)*np.cos(Omega)-np.cos(omega)*np.cos(i)*np.sin(Omega),
                       -np.sin(omega)*np.sin(Omega)+np.cos(omega)*np.cos(i)*np.cos(Omega),
                       np.cos(omega)*np.sin(i)]).T
 
-        print('Q', Q.shape)
-        
         A = (np.cos(E).T-e).T
-
-        print('A', A.shape, A[:,-1])
-        
         B = (np.sqrt(1-e**2)*np.sin(E).T).T
-
-        print('B', B.shape)
         
-        orbit_xyz = a[:,None,None]*(A[...,None]*P[:,None,:]+B[...,None]*Q[:,None,:])#a*(np.outer(A,P)+np.outer(B,Q))
-
-        print(a.shape, np.outer(A,P).shape)
-        print(orbit_xyz.shape)
+        orbit_xyz = a[:,None,None]*(A[...,None]*P[:,None,:]+B[...,None]*Q[:,None,:])
 
         return orbit_xyz
 
