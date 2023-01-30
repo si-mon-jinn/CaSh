@@ -9,7 +9,7 @@ t_in_s = 5.023*10**6 # time unit that sets G=1
 class h5_Dump:
     """ Class for a single dump. """
 
-    def load_arrays(self):
+    def load_arrays(self, verbose=False):
         with h5.File(self.dump_filename, "r") as h5_dump:
             sinks_key = 'sinks' #list(h5_dump.keys())[sinks_n]
             parts_key = 'particles' #list(h5_dump.keys())[parts_n]
@@ -21,24 +21,24 @@ class h5_Dump:
             sinks_vxyz_key = 'vxyz' #list(h5_dump[sinks_key])[sinks_vxyz_n]
 
             
-            print('Loading sinks properties (%s):' % sinks_key)
-            print('    position (%s)' %  sinks_xyz_key)
+            if verbose: print('Loading sinks properties (%s):' % sinks_key)
+            if verbose: print('    position (%s)' %  sinks_xyz_key)
             self.sinks_xyz = h5_dump[sinks_key][sinks_xyz_key][()]
-            print('    mass (%s)' %  sinks_mass_key)
+            if verbose: print('    mass (%s)' %  sinks_mass_key)
             self.sinks_mass = h5_dump[sinks_key][sinks_mass_key][()]
-            print('    velocity (%s)' %  sinks_vxyz_key)
+            if verbose: print('    velocity (%s)' %  sinks_vxyz_key)
             self.sinks_vxyz = h5_dump[sinks_key][sinks_vxyz_key][()]
 
             parts_mass_key = 'massoftype' #list(h5_dump[parts_key])[parts_mass_n]
             parts_xyz_key = 'xyz' #list(h5_dump[parts_key])[parts_xyz_n]
             parts_vxyz_key = 'vxyz' #list(h5_dump[parts_key])[parts_vxyz_n]
 
-            print('Loading particles properties (%s):' % parts_key)
-            print('    position (%s)' %  parts_xyz_key)
+            if verbose: print('Loading particles properties (%s):' % parts_key)
+            if verbose: print('    position (%s)' %  parts_xyz_key)
             self.parts_xyz = h5_dump[parts_key][parts_xyz_key][()]
-            print('    mass (%s)' %  parts_mass_key)
+            if verbose: print('    mass (%s)' %  parts_mass_key)
             self.parts_mass = h5_dump[header_key][parts_mass_key][()][0]
-            print('    velocity (%s)' %  parts_vxyz_key)
+            if verbose: print('    velocity (%s)' %  parts_vxyz_key)
             self.parts_vxyz = h5_dump[parts_key][parts_vxyz_key][()]
 
         if self.arrays_loaded(): print("Arrays loaded correctly.")
