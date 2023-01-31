@@ -42,7 +42,7 @@ class h5_Dump:
             self.parts_vxyz = h5_dump[parts_key][parts_vxyz_key][()]
 
         if not self.arrays_loaded(): print("Found problems with loaded arrays.")
-        else if self.arrays_loaded() and verbose: print("Arrays loaded correctly.")
+        elif self.arrays_loaded() and verbose: print("Arrays loaded correctly.")
 
 
         return
