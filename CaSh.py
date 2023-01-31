@@ -41,8 +41,9 @@ class h5_Dump:
             if verbose: print('    velocity (%s)' %  parts_vxyz_key)
             self.parts_vxyz = h5_dump[parts_key][parts_vxyz_key][()]
 
-        if self.arrays_loaded(): if verbose: print("Arrays loaded correctly.")
-        else: print("Found problems with loaded arrays.")
+        if not self.arrays_loaded(): print("Found problems with loaded arrays.")
+        else if self.arrays_loaded() and verbose: print("Arrays loaded correctly.")
+
 
         return
 
